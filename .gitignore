@@ -1,3 +1,7 @@
+UniCoursePlanner/.idea
+UniCoursePlanner/*.iml
+UniCoursePlanner/out
+
 # Compiled class file
 UniCoursePlanner/*.class
 
@@ -23,6 +27,8 @@ UniCoursePlanner/*.rar
 hs_err_pid*
 replay_pid*
 
-UniCoursePlanner/.idea
-UniCoursePlanner/*.iml
-UniCoursePlanner/out
+# VS Code settings (outside project folder)
+.vscode/
+
+# Mac OS system files (everywhere)
+.DS_Store
