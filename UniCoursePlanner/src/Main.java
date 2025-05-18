@@ -1,7 +1,14 @@
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
+package service;
+
+import service.gemini.GeminiClient;
+
+// THIS IS NOT FINAL MAIN. JUST A TEST
+
 public class Main {
     public static void main(String[] args) {
-        System.out.println("Development in Progress...");
-        }
+        GeminiClient geminiClient = new GeminiClient();
+        String prompt = "Tell me the capital of France";
+        String response = geminiClient.sendPrompt(prompt);
+        System.out.println("Gemini Response:\n" + response);
     }
+}
