@@ -2,6 +2,7 @@ package database;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.sql.*;
 
 public class Tables {
@@ -333,7 +334,7 @@ public class Tables {
         public void updateCredits(int newCredits) {
             String sql = "UPDATE course SET name = ? WHERE id = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1,newCredits);
+                p.setInt(1, newCredits);
                 p.setInt(2, id);
                 p.executeUpdate();
                 log.info("Course credit updated, id={}", id);
