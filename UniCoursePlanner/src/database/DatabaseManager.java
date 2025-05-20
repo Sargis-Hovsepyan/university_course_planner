@@ -31,6 +31,8 @@ public class DatabaseManager {
     }
 
     public static Connection getConnection() {
+        if (conn == null)
+            conn = dbConnection();
         return conn;
     }
 
