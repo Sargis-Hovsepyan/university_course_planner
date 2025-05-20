@@ -2,45 +2,61 @@ package database;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class Tables {
-    private static final Connection conn = DatabaseManager.getConnection();
+    private static Connection conn = null;
+
+    public static void setConnection(Connection conn) {
+        Tables.conn = conn;
+    }
 
     public static class DegreeProgram {
         private static final Logger log = LoggerFactory.getLogger(DegreeProgram.class);
 
-        public int id;
+        public String code;   // changed from int id to String code (PK in DB)
         public String name;
+        public String type;   // added type field, since program table has it
 
-        public DegreeProgram(String name) {
+        // Constructor for creating a new DegreeProgram before insert (code might be generated or assigned)
+        public DegreeProgram(String code, String name, String type) {
+            this.code = code;
             this.name = name;
+            this.type = type;
         }
 
+        // Insert method - program.code is PK, so it must be set before insert (not auto-generated)
         public void insert() {
-            String sql = "INSERT INTO degree_program(name) VALUES (?)";
-            try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                p.setString(1, name);
+            String sql = "INSERT INTO program(code, name, type) VALUES (?, ?, ?)";
+            try (PreparedStatement p = conn.prepareStatement(sql)) {
+                p.setString(1, code);
+                p.setString(2, name);
+                p.setString(3, type);
                 p.executeUpdate();
-                try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
-                }
-                log.info("DegreeProgram inserted, id={}", id);
+                log.info("DegreeProgram inserted, code={}", code);
             } catch (SQLException e) {
                 log.error("Insert DegreeProgram failed", e);
                 throw new RuntimeException(e);
             }
         }
 
-        public static DegreeProgram selectById(int id) {
-            String sql = "SELECT * FROM degree_program WHERE id = ?";
+        // Select program by code (primary key)
+        public static DegreeProgram selectByCode(String code) {
+            String sql = "SELECT * FROM program WHERE code = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
+                p.setString(1, code);
                 try (ResultSet rs = p.executeQuery()) {
                     if (!rs.next())
                         return null;
-                    DegreeProgram dp = new DegreeProgram(rs.getString("name"));
-                    dp.id = id;
+                    DegreeProgram dp = new DegreeProgram(
+                            rs.getString("code"),
+                            rs.getString("name"),
+                            rs.getString("type")
+                    );
                     return dp;
                 }
             } catch (SQLException e) {
@@ -49,109 +65,32 @@ public class Tables {
             }
         }
 
-        public static void delete(int id) {
-            String sql = "DELETE FROM degree_program WHERE id = ?";
+        // Delete by code
+        public static void delete(String code) {
+            String sql = "DELETE FROM program WHERE code = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
+                p.setString(1, code);
                 p.executeUpdate();
-                log.info("DegreeProgram deleted, id={}", id);
+                log.info("DegreeProgram deleted, code={}", code);
             } catch (SQLException e) {
                 log.error("Delete DegreeProgram failed", e);
                 throw new RuntimeException(e);
             }
         }
 
-        public void updateName(String newName) {
-            String sql = "UPDATE degree_program SET name = ? WHERE id = ?";
+        // Update name and type by code (primary key)
+        public void update(String newName, String newType) {
+            String sql = "UPDATE program SET name = ?, type = ? WHERE code = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setString(1, newName);
-                p.setInt(2, id);
+                p.setString(2, newType);
+                p.setString(3, code);
                 p.executeUpdate();
-                log.info("DegreeProgram updated, id={}", id);
+                log.info("DegreeProgram updated, code={}", code);
                 this.name = newName;
+                this.type = newType;
             } catch (SQLException e) {
                 log.error("Update DegreeProgram failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    //-------------------------------------------------------------------------
-
-    public static class Student {
-        private static final Logger log = LoggerFactory.getLogger(Student.class);
-
-        public int id;
-        public String name;
-        public String email;
-        public int programId;
-
-        public Student(String name, String email, int programId) {
-            this.name = name;
-            this.email = email;
-            this.programId = programId;
-        }
-
-        public void insert() {
-            String sql = "INSERT INTO student(name, email, program_id) VALUES (?, ?, ?)";
-            try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                p.setString(1, name);
-                p.setString(2, email);
-                p.setInt(3, programId);
-                p.executeUpdate();
-                try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
-                }
-                log.info("Student inserted, id={}", id);
-            } catch (SQLException e) {
-                log.error("Insert Student failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public static Student selectById(int id) {
-            String sql = "SELECT * FROM student WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                try (ResultSet rs = p.executeQuery()) {
-                    if (!rs.next())
-                        return null;
-                    Student s = new Student(
-                            rs.getString("name"),
-                            rs.getString("email"),
-                            rs.getInt("program_id")
-                    );
-                    s.id = id;
-                    return s;
-                }
-            } catch (SQLException e) {
-                log.error("Select Student failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public static void delete(int id) {
-            String sql = "DELETE FROM student WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                p.executeUpdate();
-                log.info("Student deleted, id={}", id);
-            } catch (SQLException e) {
-                log.error("Delete Student failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public void updateEmail(String newEmail) {
-            String sql = "UPDATE student SET email = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setString(1, newEmail);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Student email updated, id={}", id);
-                this.email = newEmail;
-            } catch (SQLException e) {
-                log.error("Update Student failed", e);
                 throw new RuntimeException(e);
             }
         }
@@ -166,7 +105,16 @@ public class Tables {
         public String name;
 
         public Instructor(String name) {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Instructor name cannot be null or empty");
+            }
             this.name = name;
+        }
+
+        // Optional constructor to create an Instructor with id (e.g., from DB)
+        public Instructor(int id, String name) {
+            this(name);
+            this.id = id;
         }
 
         public void insert() {
@@ -175,7 +123,9 @@ public class Tables {
                 p.setString(1, name);
                 p.executeUpdate();
                 try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
+                    if (rs.next()) {
+                        this.id = rs.getInt(1);
+                    }
                 }
                 log.info("Instructor inserted, id={}", id);
             } catch (SQLException e) {
@@ -189,14 +139,29 @@ public class Tables {
             try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setInt(1, id);
                 try (ResultSet rs = p.executeQuery()) {
-                    if (!rs.next())
-                        return null;
-                    Instructor ins = new Instructor(rs.getString("name"));
-                    ins.id = id;
-                    return ins;
+                    if (!rs.next()) return null;
+                    return new Instructor(id, rs.getString("name"));
                 }
             } catch (SQLException e) {
                 log.error("Select Instructor failed", e);
+                throw new RuntimeException(e);
+            }
+        }
+
+        // Optional: Select by name if useful
+        public static Instructor selectByName(String name) {
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("Name cannot be null or empty");
+            }
+            String sql = "SELECT * FROM instructor WHERE name = ?";
+            try (PreparedStatement p = conn.prepareStatement(sql)) {
+                p.setString(1, name);
+                try (ResultSet rs = p.executeQuery()) {
+                    if (!rs.next()) return null;
+                    return new Instructor(rs.getInt("id"), name);
+                }
+            } catch (SQLException e) {
+                log.error("Select Instructor by name failed", e);
                 throw new RuntimeException(e);
             }
         }
@@ -205,8 +170,12 @@ public class Tables {
             String sql = "DELETE FROM instructor WHERE id = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setInt(1, id);
-                p.executeUpdate();
-                log.info("Instructor deleted, id={}", id);
+                int rows = p.executeUpdate();
+                if (rows > 0) {
+                    log.info("Instructor deleted, id={}", id);
+                } else {
+                    log.warn("No Instructor found to delete with id={}", id);
+                }
             } catch (SQLException e) {
                 log.error("Delete Instructor failed", e);
                 throw new RuntimeException(e);
@@ -214,13 +183,20 @@ public class Tables {
         }
 
         public void updateName(String newName) {
+            if (newName == null || newName.isBlank()) {
+                throw new IllegalArgumentException("New name cannot be null or empty");
+            }
             String sql = "UPDATE instructor SET name = ? WHERE id = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setString(1, newName);
                 p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Instructor updated, id={}", id);
-                this.name = newName;
+                int rows = p.executeUpdate();
+                if (rows > 0) {
+                    log.info("Instructor updated, id={}", id);
+                    this.name = newName;
+                } else {
+                    log.warn("No Instructor found to update with id={}", id);
+                }
             } catch (SQLException e) {
                 log.error("Update Instructor failed", e);
                 throw new RuntimeException(e);
@@ -233,56 +209,62 @@ public class Tables {
     public static class Course {
         private static final Logger log = LoggerFactory.getLogger(Course.class);
 
-        public int id;
-        public String code;
-        public String name;
+        // Fields match your DB schema
+        public String code;                 // PRIMARY KEY
+        public String programCode;          // FK to program(code)
+        public String title;
         public String description;
-        public int credits;
-        public int programId;
+        public Double credits;              // Use Double to match NUMERIC(3,1)
+        public String prerequisiteCode;    // FK to course(code), nullable
 
-        public Course(String code, String name, String description, int credits, int programId) {
+        public Course(String code, String programCode, String title, String description, Double credits, String prerequisiteCode) {
             this.code = code;
-            this.name = name;
+            this.programCode = programCode;
+            this.title = title;
             this.description = description;
             this.credits = credits;
-            this.programId = programId;
+            this.prerequisiteCode = prerequisiteCode;
         }
 
         public void insert() {
-            String sql = "INSERT INTO course(code, name, description, credits, program_id) VALUES (?, ?, ?, ?, ?)";
-            try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            String sql = "INSERT INTO course(code, program_code, title, description, credits, prerequisite_code) VALUES (?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setString(1, code);
-                p.setString(2, name);
-                p.setString(3, description);
-                p.setInt(4, credits);
-                p.setInt(5, programId);
-                p.executeUpdate();
-                try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
+                p.setString(2, programCode);
+                p.setString(3, title);
+                p.setString(4, description);
+                if (credits == null) {
+                    p.setNull(5, Types.NUMERIC);
+                } else {
+                    p.setDouble(5, credits);
                 }
-                log.info("Course inserted, id={}", id);
+                if (prerequisiteCode == null) {
+                    p.setNull(6, Types.VARCHAR);
+                } else {
+                    p.setString(6, prerequisiteCode);
+                }
+                p.executeUpdate();
+                log.info("Course inserted, code={}", code);
             } catch (SQLException e) {
                 log.error("Insert Course failed", e);
                 throw new RuntimeException(e);
             }
         }
 
-        public static Course selectById(int id) {
-            String sql = "SELECT * FROM course WHERE id = ?";
+        public static Course selectByCode(String code) {
+            String sql = "SELECT * FROM course WHERE code = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
+                p.setString(1, code);
                 try (ResultSet rs = p.executeQuery()) {
-                    if (!rs.next())
-                        return null;
-                    Course c = new Course(
+                    if (!rs.next()) return null;
+                    return new Course(
                             rs.getString("code"),
-                            rs.getString("name"),
+                            rs.getString("program_code"),
+                            rs.getString("title"),
                             rs.getString("description"),
-                            rs.getInt("credits"),
-                            rs.getInt("program_id")
+                            rs.getObject("credits") != null ? rs.getDouble("credits") : null,
+                            rs.getString("prerequisite_code")
                     );
-                    c.id = id;
-                    return c;
                 }
             } catch (SQLException e) {
                 log.error("Select Course failed", e);
@@ -290,149 +272,102 @@ public class Tables {
             }
         }
 
-        public static void delete(int id) {
-            String sql = "DELETE FROM course WHERE id = ?";
+        public static void delete(String code) {
+            String sql = "DELETE FROM course WHERE code = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                p.executeUpdate();
-                log.info("Course deleted, id={}", id);
+                p.setString(1, code);
+                int rows = p.executeUpdate();
+                if (rows > 0) {
+                    log.info("Course deleted, code={}", code);
+                } else {
+                    log.warn("No course found to delete with code={}", code);
+                }
             } catch (SQLException e) {
                 log.error("Delete Course failed", e);
                 throw new RuntimeException(e);
             }
         }
 
-        public void updateName(String newName) {
-            String sql = "UPDATE course SET name = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setString(1, newName);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Course name updated, id={}", id);
-                this.name = newName;
-            } catch (SQLException e) {
-                log.error("Update Course failed", e);
-                throw new RuntimeException(e);
+        /**
+         * Update the course fields dynamically based on the given map of column->value.
+         * Example keys: "title", "description", "credits", "program_code", "prerequisite_code"
+         *
+         * @param updates Map of column names to new values
+         */
+        public void update(Map<String, Object> updates) {
+            if (updates == null || updates.isEmpty()) {
+                log.warn("No fields provided to update for course code={}", code);
+                return;
             }
-        }
 
-        public void updateDescription(String newDescription) {
-            String sql = "UPDATE course SET name = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setString(1, newDescription);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Course description updated, id={}", id);
-                this.description = newDescription;
-            } catch (SQLException e) {
-                log.error("Update Course failed", e);
-                throw new RuntimeException(e);
+            StringBuilder sql = new StringBuilder("UPDATE course SET ");
+            int count = 0;
+            for (String field : updates.keySet()) {
+                if (count > 0) sql.append(", ");
+                sql.append(field).append(" = ?");
+                count++;
             }
-        }
+            sql.append(" WHERE code = ?");
 
-        public void updateCredits(int newCredits) {
-            String sql = "UPDATE course SET name = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1,newCredits);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Course credit updated, id={}", id);
-                this.credits = newCredits;
-            } catch (SQLException e) {
-                log.error("Update Course failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public void updateProgramId(int newProgramId) {
-            String sql = "UPDATE course SET name = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, newProgramId);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Course program id updated, id={}", id);
-                this.programId = newProgramId;
-            } catch (SQLException e) {
-                log.error("Update Course failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    //-------------------------------------------------------------------------
-
-    public static class Prerequisite {
-        private static final Logger log = LoggerFactory.getLogger(Prerequisite.class);
-
-        public int id;
-        public int courseId;
-        public int prerequisiteId;
-
-        public Prerequisite(int courseId, int prerequisiteId) {
-            this.courseId = courseId;
-            this.prerequisiteId = prerequisiteId;
-        }
-
-        public void insert() {
-            String sql = "INSERT INTO prerequisite(course_id, prerequisite_id) VALUES (?, ?)";
-            try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                p.setInt(1, courseId);
-                p.setInt(2, prerequisiteId);
-                p.executeUpdate();
-                try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
+            try (PreparedStatement p = conn.prepareStatement(sql.toString())) {
+                int index = 1;
+                for (String field : updates.keySet()) {
+                    Object value = updates.get(field);
+                    if (value == null) {
+                        // Set SQL NULL based on expected column type, simplified as VARCHAR or NUMERIC
+                        if ("credits".equals(field)) {
+                            p.setNull(index, Types.NUMERIC);
+                        } else {
+                            p.setNull(index, Types.VARCHAR);
+                        }
+                    } else if (value instanceof String) {
+                        p.setString(index, (String) value);
+                    } else if (value instanceof Integer) {
+                        p.setInt(index, (Integer) value);
+                    } else if (value instanceof Double) {
+                        p.setDouble(index, (Double) value);
+                    } else {
+                        p.setObject(index, value);
+                    }
+                    index++;
                 }
-                log.info("Prerequisite inserted, id={}", id);
-            } catch (SQLException e) {
-                log.error("Insert Prerequisite failed", e);
-                throw new RuntimeException(e);
-            }
-        }
+                // WHERE clause parameter (code)
+                p.setString(index, code);
 
-        public static void delete(int id) {
-            String sql = "DELETE FROM prerequisite WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                p.executeUpdate();
-                log.info("Prerequisite deleted, id={}", id);
-            } catch (SQLException e) {
-                log.error("Delete Prerequisite failed", e);
-                throw new RuntimeException(e);
-            }
-        }
+                int rows = p.executeUpdate();
+                if (rows > 0) {
+                    log.info("Updated course code={} with fields {}", code, updates.keySet());
 
-        public static Prerequisite selectById(int id) {
-            String sql = "SELECT * FROM prerequisite WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                try (ResultSet rs = p.executeQuery()) {
-                    if (!rs.next())
-                        return null;
-                    Prerequisite pr = new Prerequisite(
-                            rs.getInt("course_id"),
-                            rs.getInt("prerequisite_id")
-                    );
-                    pr.id = id;
-                    return pr;
+                    // Update local fields to keep object consistent
+                    for (Map.Entry<String, Object> entry : updates.entrySet()) {
+                        String field = entry.getKey();
+                        Object val = entry.getValue();
+
+                        switch (field) {
+                            case "title":
+                                this.title = (String) val;
+                                break;
+                            case "description":
+                                this.description = (String) val;
+                                break;
+                            case "credits":
+                                if (val == null) this.credits = null;
+                                else if (val instanceof Double) this.credits = (Double) val;
+                                else this.credits = Double.parseDouble(val.toString());
+                                break;
+                            case "program_code":
+                                this.programCode = (String) val;
+                                break;
+                            case "prerequisite_code":
+                                this.prerequisiteCode = (String) val;
+                                break;
+                        }
+                    }
+                } else {
+                    log.warn("No course found with code={} to update", code);
                 }
             } catch (SQLException e) {
-                log.error("Select Prerequisite failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public void update(int newCourseId, int newPrerequisiteId) {
-            String sql = "UPDATE prerequisite SET course_id = ?, prerequisite_id = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, newCourseId);
-                p.setInt(2, newPrerequisiteId);
-                p.setInt(3, id);
-                p.executeUpdate();
-                this.courseId = newCourseId;
-                this.prerequisiteId = newPrerequisiteId;
-                log.info("Prerequisite updated, id={}", id);
-            } catch (SQLException e) {
-                log.error("Update Prerequisite failed", e);
+                log.error("Update Course failed for code=" + code, e);
                 throw new RuntimeException(e);
             }
         }
@@ -444,34 +379,51 @@ public class Tables {
         private static final Logger log = LoggerFactory.getLogger(Schedule.class);
 
         public int id;
-        public int courseId;
-        public int instructorId;
-        public Timestamp startTime;
-        public Timestamp endTime;
+        public String courseCode;
+        public String courseName;
+        public String section;
+        public String session;
+        public double credits;
+        public String campus;
+        public String instructor;
+        public String times;    // e.g., "MON 5:30pm-7:20pm, WED 6:30pm-7:20pm"
         public String location;
-        public String semester;
+        public String semester; // e.g., 202324/fall
 
-        public Schedule(int courseId, int instructorId, Timestamp startTime, Timestamp endTime, String location, String semester) {
-            this.courseId = courseId;
-            this.instructorId = instructorId;
-            this.startTime = startTime;
-            this.endTime = endTime;
+        public Schedule(String courseCode, String courseName, String section, String session, double credits,
+                        String campus, String instructor, String times, String location, String semester) {
+            this.courseCode = courseCode;
+            this.courseName = courseName;
+            this.section = section;
+            this.session = session;
+            this.credits = credits;
+            this.campus = campus;
+            this.instructor = instructor;
+            this.times = times;
             this.location = location;
             this.semester = semester;
         }
 
         public void insert() {
-            String sql = "INSERT INTO schedule(course_id, instructor_id, start_time, end_time, location, semester) VALUES (?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO schedule(course_code, course_name, section, session, credits, campus, instructor, times, location, semester) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                p.setInt(1, courseId);
-                p.setInt(2, instructorId);
-                p.setTimestamp(3, startTime);
-                p.setTimestamp(4, endTime);
-                p.setString(5, location);
-                p.setString(6, semester);
+                p.setString(1, courseCode);
+                p.setString(2, courseName);
+                p.setString(3, section);
+                p.setString(4, session);
+                p.setDouble(5, credits);
+                p.setString(6, campus);
+                p.setString(7, instructor);
+                p.setString(8, times);
+                p.setString(9, location);
+                p.setString(10, semester);
+
                 p.executeUpdate();
                 try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
+                    if (rs.next()) {
+                        this.id = rs.getInt(1);
+                    }
                 }
                 log.info("Schedule inserted, id={}", id);
             } catch (SQLException e) {
@@ -480,7 +432,7 @@ public class Tables {
             }
         }
 
-        public static void delete(int id) {
+        public static void delete(Connection conn, int id) {
             String sql = "DELETE FROM schedule WHERE id = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setInt(1, id);
@@ -492,46 +444,110 @@ public class Tables {
             }
         }
 
-        public void updateLocation(String newLocation) {
-            String sql = "UPDATE schedule SET name = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setString(1, newLocation);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Schedule location updated, id={}", id);
-                this.location = newLocation;
+        /**
+         * Update any fields provided in the map.
+         * Keys must match column names exactly.
+         */
+        public void update(Connection conn, Map<String, Object> fields) {
+            if (fields == null || fields.isEmpty()) {
+                log.warn("No fields provided to update for Schedule id={}", id);
+                return;
+            }
+            StringBuilder sql = new StringBuilder("UPDATE schedule SET ");
+            List<Object> values = new ArrayList<>();
+
+            for (String field : fields.keySet()) {
+                sql.append(field).append(" = ?, ");
+                values.add(fields.get(field));
+            }
+
+            // Remove trailing comma and space
+            sql.setLength(sql.length() - 2);
+            sql.append(" WHERE id = ?");
+            values.add(id);
+
+            try (PreparedStatement p = conn.prepareStatement(sql.toString())) {
+                for (int i = 0; i < values.size(); i++) {
+                    Object val = values.get(i);
+                    if (val instanceof String) {
+                        p.setString(i + 1, (String) val);
+                    } else if (val instanceof Integer) {
+                        p.setInt(i + 1, (Integer) val);
+                    } else if (val instanceof Double) {
+                        p.setDouble(i + 1, (Double) val);
+                    } else {
+                        p.setObject(i + 1, val);
+                    }
+                }
+
+                int rowsUpdated = p.executeUpdate();
+                if (rowsUpdated == 0) {
+                    log.warn("No Schedule record updated for id={}", id);
+                } else {
+                    log.info("Schedule updated, id={}, fields={}", id, fields.keySet());
+
+                    // Reflect changes in this object's fields
+                    for (Map.Entry<String, Object> entry : fields.entrySet()) {
+                        String field = entry.getKey();
+                        Object value = entry.getValue();
+                        switch (field) {
+                            case "course_code":
+                                this.courseCode = (String) value;
+                                break;
+                            case "course_name":
+                                this.courseName = (String) value;
+                                break;
+                            case "section":
+                                this.section = (String) value;
+                                break;
+                            case "session":
+                                this.session = (String) value;
+                                break;
+                            case "credits":
+                                this.credits = (Double) value;
+                                break;
+                            case "campus":
+                                this.campus = (String) value;
+                                break;
+                            case "instructor":
+                                this.instructor = (String) value;
+                                break;
+                            case "times":
+                                this.times = (String) value;
+                                break;
+                            case "location":
+                                this.location = (String) value;
+                                break;
+                            case "semester":
+                                this.semester = (String) value;
+                                break;
+                            default:
+                                log.warn("Unknown field '{}' in update for Schedule id={}", field, id);
+                        }
+                    }
+                }
             } catch (SQLException e) {
                 log.error("Update Schedule failed", e);
                 throw new RuntimeException(e);
             }
         }
 
-        public void updateSemester(String newSemester) {
-            String sql = "UPDATE schedule SET name = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setString(1, newSemester);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Schedule semester updated, id={}", id);
-                this.semester = newSemester;
-            } catch (SQLException e) {
-                log.error("Update Schedule failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public static Schedule selectById(int id) {
+        public static Schedule selectById(Connection conn, int id) {
             String sql = "SELECT * FROM schedule WHERE id = ?";
             try (PreparedStatement p = conn.prepareStatement(sql)) {
                 p.setInt(1, id);
                 try (ResultSet rs = p.executeQuery()) {
-                    if (!rs.next())
-                        return null;
+                    if (!rs.next()) return null;
+
                     Schedule s = new Schedule(
-                            rs.getInt("course_id"),
-                            rs.getInt("instructor_id"),
-                            rs.getTimestamp("start_time"),
-                            rs.getTimestamp("end_time"),
+                            rs.getString("course_code"),
+                            rs.getString("course_name"),
+                            rs.getString("section"),
+                            rs.getString("session"),
+                            rs.getDouble("credits"),
+                            rs.getString("campus"),
+                            rs.getString("instructor"),
+                            rs.getString("times"),
                             rs.getString("location"),
                             rs.getString("semester")
                     );
@@ -540,87 +556,6 @@ public class Tables {
                 }
             } catch (SQLException e) {
                 log.error("Select Schedule failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    //-------------------------------------------------------------------------
-
-    public static class Enrollment {
-        private static final Logger log = LoggerFactory.getLogger(Enrollment.class);
-
-        public int id;
-        public int studentId;
-        public int scheduleId;
-        public String status;
-
-        public Enrollment(int studentId, int scheduleId, String status) {
-            this.studentId = studentId;
-            this.scheduleId = scheduleId;
-            this.status = status;
-        }
-
-        public void insert() {
-            String sql = "INSERT INTO enrollment(student_id, schedule_id, status) VALUES (?, ?, ?)";
-            try (PreparedStatement p = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                p.setInt(1, studentId);
-                p.setInt(2, scheduleId);
-                p.setString(3, status);
-                p.executeUpdate();
-                try (ResultSet rs = p.getGeneratedKeys()) {
-                    if (rs.next()) this.id = rs.getInt(1);
-                }
-                log.info("Enrollment inserted, id={}", id);
-            } catch (SQLException e) {
-                log.error("Insert Enrollment failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public static void delete(int id) {
-            String sql = "DELETE FROM enrollment WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                p.executeUpdate();
-                log.info("Enrollment deleted, id={}", id);
-            } catch (SQLException e) {
-                log.error("Delete Enrollment failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public void updateStatus(String newStatus) {
-            String sql = "UPDATE enrollment SET status = ? WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setString(1, newStatus);
-                p.setInt(2, id);
-                p.executeUpdate();
-                log.info("Enrollment status updated, id={}", id);
-                this.status = newStatus;
-            } catch (SQLException e) {
-                log.error("Update Enrollment failed", e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public static Enrollment selectById(int id) {
-            String sql = "SELECT * FROM enrollment WHERE id = ?";
-            try (PreparedStatement p = conn.prepareStatement(sql)) {
-                p.setInt(1, id);
-                try (ResultSet rs = p.executeQuery()) {
-                    if (!rs.next())
-                        return null;
-                    Enrollment e = new Enrollment(
-                            rs.getInt("student_id"),
-                            rs.getInt("schedule_id"),
-                            rs.getString("status")
-                    );
-                    e.id = rs.getInt("id");
-                    return e;
-                }
-            } catch (SQLException e) {
-                log.error("Select Enrollment failed", e);
                 throw new RuntimeException(e);
             }
         }
