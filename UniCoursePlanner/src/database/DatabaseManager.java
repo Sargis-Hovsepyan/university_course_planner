@@ -1,11 +1,13 @@
 package database;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+import service.Environment;
 
 public class DatabaseManager {
     private static final String JDBC_URL = Environment.get("DB_URL");
@@ -20,9 +22,9 @@ public class DatabaseManager {
         }
     }
 
-    public DatabaseManager(){
+    public DatabaseManager() {
         conn = dbConnection();
-        if (conn == null){
+        if (conn == null) {
             log.error("Database connection initialization returned null");
             throw new IllegalStateException("Database connection failed");
         }
@@ -52,6 +54,4 @@ public class DatabaseManager {
             throw new DatabaseManager.DatabaseException("Error closing connection", e);
         }
     }
-
-
 }
