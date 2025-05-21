@@ -559,5 +559,36 @@ public class Tables {
                 throw new RuntimeException(e);
             }
         }
+
+        public static List<Schedule> selectBySemester(String semester) {
+            List<Schedule> schedules = new ArrayList<>();
+            String sql = "SELECT * FROM schedule WHERE semester = ?";
+            try (PreparedStatement p = conn.prepareStatement(sql)) {
+                p.setString(1, semester);
+                try (ResultSet rs = p.executeQuery()) {
+                    while (rs.next()) {
+                        Schedule s = new Schedule(
+                                rs.getString("course_code"),
+                                rs.getString("course_name"),
+                                rs.getString("section"),
+                                rs.getString("session"),
+                                rs.getDouble("credits"),
+                                rs.getString("campus"),
+                                rs.getString("instructor"),
+                                rs.getString("times"),
+                                rs.getString("location"),
+                                rs.getString("semester")
+                        );
+                        s.id = rs.getInt("id");
+                        schedules.add(s);
+                    }
+                    log.info("Selected {} schedules for semester={}", schedules.size(), semester);
+                    return schedules;
+                }
+            } catch (SQLException e) {
+                log.error("Select Schedules by semester failed", e);
+                throw new RuntimeException(e);
+            }
+        }
     }
 }
