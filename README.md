@@ -8,22 +8,23 @@ Built with **Java** and integrated with **Google Gemini 2.5** via API.
 
 ## 🚀 Features
 
-- ✅ Natural language input → Personalized course schedule
-- ✅ Considers prerequisites and curriculum constraints
-- ✅ Custom workload and interest-based planning
-- ✅ Uses Gemini 2.5 for LLM-powered understanding
-- ✅ Modular, extensible CLI-based architecture
-- ✅ Well-documented GitHub collaboration process
+- ✅ **Interactive CLI** — Guided prompts collect your degree, year, course preferences, etc.
+- ✅ **LLM‑Powered Planning** — Leverages Google Gemini 2.5 to interpret preferences and generate conflict‑free schedules.
+- ✅ **Curriculum Awareness** — Respects prerequisites, degree requirements, and credit limits.
+- ✅ **Flexible Preferences** — Customize by instructor, days of week, time slots, interests, GenEd areas.
+- ✅ **PostgreSQL Backend** — Stores course, schedule, instructor, student and enrollment data.
+- ✅ **Modular Design** — Clear separation: CLI, service layer, data models, and LLM integration.
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Language**: Java
-- **Interface**: Command-Line (CLI)
-- **LLM**: Google Gemini 2.5 (via API)
+- **CLI**: Scanner‑based interactive shell
+- **LLM**: Google Gemini 2.5 
+- **DB**: PostgreSQL
+- **Logging**: SLF4J + Simple logger
 - **Version Control**: Git + GitHub
-- **Database**: PostgreSQL
 
 ---
 
@@ -33,3 +34,17 @@ Built with **Java** and integrated with **Google Gemini 2.5** via API.
    ```bash
    git clone git@github.com:Sargis-Hovsepyan/student_course_planner.git
    cd student_course_planner
+   
+2. **Start up**
+   ```
+---
+## 🔑 API & Environment Notes
+- **Gemini Integration**
+   - The app reads your GEMINI_API_KEY from the .env file via the Environment utility.
+   - Ensure your key is valid and has sufficient quota.
+   - The LLM prompt is built in buildPrompt(...) and sent via GeminiClient.sendPrompt(...).
+
+- **Database Connection**
+   - Connection parameters (DB_URL, DB_USER, DB_PASSWORD) come from .env.
+   - The DatabaseManager handles opening and closing the JDBC connection.
+   - Data models (in model/) provide CRUD operations for each table—just call insert(), selectById(), update…(), and delete() on the appropriate class.
