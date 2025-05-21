@@ -1,23 +1,30 @@
 package cli;
 
 import java.util.*;
+import service.gemini.GeminiClient;
 
 public class PromptService{
 	private final Scanner scanner = new Scanner(System.in);
 
 	public void collectInitialPreferences(UserPreferences prefs){
-		DegreeType degree = promptDegree();
-		prefs.add("Degree", capitalize(degree.name()));
-		prefs.add("Degree course", promptYearLevel(degree));
+		String degree = promptDegree();
+		prefs.add("degree_program", degree);
+		prefs.add("level", promptYearLevel(degree.toLowerCase()));
+
+		prefs.add("student_name", promptName());
+		prefs.add("semester", promptSemester());
+		prefs.add("preferred_times", promptPreferredTimes());
+		prefs.add("preferred_days", promptPreferredDays());
+		prefs.add("completed_courses", promptCompletedCourses());
 
 		String lecturers = promptLecturerPreference();
 		if (lecturers != null){
-			prefs.add("Preferred lecturer", lecturers);
+			prefs.add("preferred_instructor", lecturers);
 		}
 
 		int[] credits = promptCreditRange();
-		prefs.add("Preferred minimum number of credits", String.valueOf(credits[0]));
-		prefs.add("Preferred maximum number of credits", String.valueOf(credits[1]));
+		prefs.add("min_credits", String.valueOf(credits[0]));
+		prefs.add("max_credits", String.valueOf(credits[1]));
 	}
 
 	public CommandType promptMainCommand(){
@@ -32,11 +39,19 @@ public class PromptService{
 		}
 	}
 
+	public String promptCompletedCourses() {
+		System.out.print("Enter completed courses (comma separated, e.g., CS101,MATH101): ");
+		return scanner.nextLine().trim();
+	}
+
 	public void handleGeneratePlan(UserPreferences prefs){
 		while(true){
 			System.out.println("===== Generated Plan =====");
 			System.out.println(prefs.getPromptText());
 			System.out.println("This is the generated plan.");
+			GeminiClient client = new GeminiClient();
+			String response = client.sendPrompt(prefs.getPromptText());
+			System.out.println(response);
 			System.out.println("==========================");
 
 			System.out.print("Is this plan good? (yes / regenerate / exit): ");
@@ -45,19 +60,29 @@ public class PromptService{
 		}
 	}
 
+	public String promptPreferredDays() {
+		System.out.print("Enter preferred days (comma separated, e.g., MON,WED,FRI): ");
+		return scanner.nextLine().trim();
+	}
+
 	public void handlePreferences(UserPreferences prefs){
 		if(promptYes("Do you have preferred core courses?")){
 			System.out.println("Available: CS100, CS306, CS220, CS401");
 			System.out.print("Enter selected core courses (comma separated): ");
 			String input = scanner.nextLine().trim();
-			prefs.add("Preferred core courses", input);
+			prefs.add("preferred_courses", input);
 		}
 
 		if(promptYes("Do you have preferred general education courses?")){
 			System.out.print("Enter general education courses (comma separated): ");
 			String input = scanner.nextLine().trim();
-			prefs.add("Preferred courses for general education", input);
+			prefs.add("preferred_gen_ed_area", input);
 		}
+	}
+
+	public String promptPreferredTimes() {
+		System.out.print("Please enter your preferred times (e.g., 9:00AM-1:00PM): ");
+		return scanner.nextLine().trim();
 	}
 
 	public void handleFreePrompt(UserPreferences prefs){
@@ -72,28 +97,28 @@ public class PromptService{
 		System.out.print("Enter your free-form request: ");
 		String freeText = scanner.nextLine().trim();
 
+		prefs.add("free_description", freeText);
+
 		System.out.println("===== Final Free Prompt =====");
 		System.out.print(prefs.getPromptText());
 		System.out.println("User free request: " + freeText);
 	}
 
-	private DegreeType promptDegree(){
-		while(true){
-			System.out.print("Enter your degree (Bachelor / Master): ");
-			String input = scanner.nextLine().trim().toLowerCase();
-			return switch(input){
-				case "bachelor" -> DegreeType.BACHELOR;
-				case "master" -> DegreeType.MASTER;
-					default -> {
-						System.out.println("Invalid input.");
-						yield promptDegree();
-					}
-			};
+	private String promptDegree() {
+		while (true) {
+			System.out.print("Enter your degree program (e.g., CS, DS, MSCIS): ");
+			String input = scanner.nextLine().trim().toUpperCase();
+
+			if (!input.isEmpty()) {
+				return input;
+			}
+
+			System.out.println("Invalid input. Please enter a non-empty degree program.");
 		}
 	}
 
-	private String promptYearLevel(DegreeType degree){
-		List<String> options = (degree == DegreeType.BACHELOR) ?
+	private String promptYearLevel(String degree){
+		List<String> options = (degree == "bachelor") ?
 			List.of("Freshman", "Sophomore", "Junior", "Senior") :
 			List.of("Junior", "Senior");
 
@@ -104,9 +129,20 @@ public class PromptService{
 			System.out.println("Invalid input.");
 		}
 	}
+	
+	public String promptName(){
+		System.out.print("Please enter your name: ");
+		return scanner.nextLine().trim();
+	}
+
+	public String promptSemester(){
+		System.out.print("Please enter semester (e.g., 2024/25fall): ");
+		return scanner.nextLine().trim();
+	}
+
 
 	private String promptLecturerPreference(){
-		if(promptYes("Do you have a preferred lecturer?")){
+		if(promptYes("Do you have a preferred instructor?")){
 			System.out.print("Enter name(s), comma-separated: ");
 			return scanner.nextLine().trim();
 		}
