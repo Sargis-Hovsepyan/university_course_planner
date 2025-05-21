@@ -1,8 +1,9 @@
 package cli;
 
 public enum CommandType{
-    Generate_plan,
-    Preferences,
-    Free_prompt,
-    Exit
+	GENERATE_PLAN,
+	PREFERENCES,
+	FREE_PROMPT,
+	EXIT,
+	INVALID
 }
