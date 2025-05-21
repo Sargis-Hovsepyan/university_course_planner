@@ -11,6 +11,10 @@ public class UserPreferences{
 		fullPrompt.append(key).append(": ").append(value).append("\n");
 	}
 
+	public Map<String, String> getPromptMap(){
+		return data;
+	}
+
 	public String getPromptText(){
 		return fullPrompt.toString();
 	}
