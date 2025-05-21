@@ -1,5 +1,7 @@
 package cli;
 
-public class CLI {
-    // TODO: Implementation to be added
+public class CLI{
+	public static void main(String[] args){
+		new CLIApp().run();
+	}
 }
