@@ -1,13 +1,17 @@
 package cli;
 
 import java.util.*;
+
+import service.gemini.CoursePlannerAssistant;
 import service.gemini.GeminiClient;
 
 public class PromptService{
 	private final Scanner scanner = new Scanner(System.in);
+	CoursePlannerAssistant assistant = new CoursePlannerAssistant();
 
 	public void collectInitialPreferences(UserPreferences prefs){
 		String degree = promptDegree();
+
 		prefs.add("degree_program", degree);
 		prefs.add("level", promptYearLevel(degree.toLowerCase()));
 
@@ -50,7 +54,9 @@ public class PromptService{
 			System.out.println(prefs.getPromptText());
 			System.out.println("This is the generated plan.");
 			GeminiClient client = new GeminiClient();
-			String response = client.sendPrompt(prefs.getPromptText());
+//			String response = client.sendPrompt(prefs.getPromptText());
+			String response = assistant.getCoursePlan(prefs.getPromptMap());
+
 			System.out.println(response);
 			System.out.println("==========================");
 
@@ -118,9 +124,7 @@ public class PromptService{
 	}
 
 	private String promptYearLevel(String degree){
-		List<String> options = (degree == "bachelor") ?
-			List.of("Freshman", "Sophomore", "Junior", "Senior") :
-			List.of("Junior", "Senior");
+		List<String> options = List.of("Freshman", "Sophomore", "Junior", "Senior");
 
 		while(true){
 			System.out.print("What year are you in? " + options + ": ");
@@ -136,10 +140,9 @@ public class PromptService{
 	}
 
 	public String promptSemester(){
-		System.out.print("Please enter semester (e.g., 2024/25fall): ");
+		System.out.print("Please enter semester (e.g., 202425/fall): ");
 		return scanner.nextLine().trim();
 	}
-
 
 	private String promptLecturerPreference(){
 		if(promptYes("Do you have a preferred instructor?")){
