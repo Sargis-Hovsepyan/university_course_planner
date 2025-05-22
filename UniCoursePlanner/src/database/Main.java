@@ -14,19 +14,21 @@ public class Main {
 
         /* Inserting Data */
 
+
         String projectRoot = System.getProperty("user.dir");
         Path parentDir = Paths.get(projectRoot).getParent();
 
-        Path pathPrograms = parentDir.resolve("data/university_degree_programs.csv");
+        Path pathPrograms = parentDir.resolve("university_course_planner/data/university_degree_programs.csv");
         startup.readDegreePrograms(pathPrograms.toString());
 
-        Path pathInstructors = parentDir.resolve("data/university_instructors.csv");
+
+        Path pathInstructors = parentDir.resolve("university_course_planner/data/university_instructors.csv");
         startup.readInstructors(pathInstructors.toString());
 
-        Path pathCourses = parentDir.resolve("data/university_courses.csv");
+        Path pathCourses = parentDir.resolve("university_course_planner/data/university_courses.csv");
         startup.readCourses(pathCourses.toString());
 
-        Path pathSchedules = parentDir.resolve("data/university_schedules.csv");
+        Path pathSchedules = parentDir.resolve("university_course_planner/data/university_schedules.csv");
         startup.readSchedules(pathSchedules.toString());
 
         conn.close();
