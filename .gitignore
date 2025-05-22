@@ -32,6 +32,3 @@ replay_pid*
 
 # Mac OS system files (everywhere)
 .DS_Store
-
-# Envirronment Variables
-.env
