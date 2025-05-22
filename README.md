@@ -3,7 +3,7 @@
 A command-line application that helps students generate personalized academic course plans by collecting their preferences and sending them to an AI assistant.
 
 ## 📁 Directory Structure
-
+```
 cli/
 ├── CLI.java                # Entry point of the application
 ├── CLIApp.java             # Main CLI logic and user interaction loop
@@ -12,6 +12,7 @@ cli/
 ├── DegreeType.java         # Enum for degree types (if used)
 ├── PromptService.java      # Handles all prompts for collecting user input
 └── UserPreferences.java    # Stores and manages user preferences
+```
 
 ## ✅ Features
 
