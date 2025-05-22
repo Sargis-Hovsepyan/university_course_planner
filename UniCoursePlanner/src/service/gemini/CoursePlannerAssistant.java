@@ -86,7 +86,7 @@ public class CoursePlannerAssistant {
         String response = geminiClient.sendPrompt(prompt.toString());
 
         // Close database connection
-        dbManager.connClose();
+//        dbManager.connClose();
 
         // Return the plain text response from Gemini
         return response;
@@ -313,7 +313,7 @@ public class CoursePlannerAssistant {
         String response = geminiClient.sendPrompt(prompt.toString());
 
         // Close database connection
-        dbManager.connClose();
+//        dbManager.connClose();
         return response;
     }
 }
