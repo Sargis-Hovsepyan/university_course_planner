@@ -20,16 +20,16 @@ public class GeminiClient {
 
     public String sendPrompt(String prompt) {
         String requestBody = String.format("""
-        {
-          "contents": [
-            {
-              "parts": [
-                { "text": "%s" }
-              ]
-            }
-          ]
-        }
-        """, prompt.replace("\"", "\\\"")); // escape quotes
+                {
+                  "contents": [
+                    {
+                      "parts": [
+                        { "text": "%s" }
+                      ]
+                    }
+                  ]
+                }
+                """, prompt.replace("\"", "\\\"")); // escape quotes
 
         try {
             HttpRequest request = HttpRequest.newBuilder()

@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,33 +25,60 @@ public class CoursePlannerAssistant {
         Tables.setConnection(dbManager.getConnection());
     }
 
-    public String generateOptimizedPlan(
-            String studentName,
-            String degreeProgram,
-            String yearLevel,
-            List<String> completedCourses,
-            Map<String, String> preferences,
-            Set<String> preferredInstructors,
-            Set<String> preferredDays,
-            String preferredTimeSlot
-    ) {
-        // Initialize inputs with defaults
-        if (studentName == null || studentName.isEmpty()) studentName = "Student";
-        if (degreeProgram == null || degreeProgram.isEmpty()) degreeProgram = "CS";
-        if (yearLevel == null || yearLevel.isEmpty()) yearLevel = "Sophomore";
-        if (completedCourses == null) completedCourses = new ArrayList<>();
-        if (preferences == null) preferences = new HashMap<>();
-        if (preferredInstructors == null) preferredInstructors = Set.of();
-        if (preferredDays == null) preferredDays = Set.of();
-        if (preferredTimeSlot == null) preferredTimeSlot = "";
+    public String getCoursePlan(Map<String, String> inputParams) {
+        // Extract parameters with defaults
+        String semester = inputParams.getOrDefault("semester", "202425/fall");
+        String yearLevel = inputParams.getOrDefault("level", "Sophomore");
+        String degreeProgram = inputParams.getOrDefault("degree_program", "CS");
+        String studentName = inputParams.getOrDefault("student_name", "Student");
+        String preferredTimes = inputParams.getOrDefault("preferred_times", "");
+        String preferredInstructor = inputParams.getOrDefault("preferred_instructor", "");
+        String minCredits = inputParams.getOrDefault("min_credits", "9");
+        String maxCredits = inputParams.getOrDefault("max_credits", "15");
+        String freeDescription = inputParams.getOrDefault("free_description", "");
+        String preferredCourses = inputParams.getOrDefault("preferred_courses", "");
+        String preferredGenEdArea = inputParams.getOrDefault("preferred_gen_ed_area", "");
 
-        // Fetch available course schedules from database
-        Map<String, String> courseScheduleDB = fetchCourseSchedules();
+        // Parse comma-separated lists
+        List<String> completedCourses = new ArrayList<>();
+        if (inputParams.containsKey("completed_courses") && !inputParams.get("completed_courses").isEmpty()) {
+            completedCourses = List.of(inputParams.get("completed_courses").split("\\s*,\\s*"));
+        }
+
+        Set<String> preferredInstructors = new HashSet<>();
+        if (!preferredInstructor.isEmpty()) {
+            preferredInstructors = Set.of(preferredInstructor.split("\\s*,\\s*"));
+        }
+
+        Set<String> preferredDays = new HashSet<>();
+        if (inputParams.containsKey("preferred_days") && !inputParams.get("preferred_days").isEmpty()) {
+            preferredDays = Set.of(inputParams.get("preferred_days").split("\\s*,\\s*"));
+        }
+
+        // Build preferences map
+        Map<String, String> preferences = new HashMap<>();
+        if (!freeDescription.isEmpty()) {
+            preferences.put("Interest", freeDescription);
+        }
+        if (!preferredCourses.isEmpty()) {
+            preferences.put("Preferred Courses", preferredCourses);
+        }
+        if (!preferredGenEdArea.isEmpty()) {
+            preferences.put("Preferred GenEd Area", preferredGenEdArea);
+        }
+        if (!minCredits.equals(maxCredits)) {
+            preferences.put("Credit Range", minCredits + "-" + maxCredits + " credits");
+        } else {
+            preferences.put("Credit Load", maxCredits + " credits");
+        }
+
+        // Fetch available course schedules for the specified semester
+        Map<String, String> courseScheduleDB = fetchCourseSchedules(semester);
 
         // Build prompt
         StringBuilder prompt = buildPrompt(
                 studentName, degreeProgram, yearLevel, completedCourses,
-                preferences, preferredInstructors, preferredDays, preferredTimeSlot,
+                preferences, preferredInstructors, preferredDays, preferredTimes,
                 courseScheduleDB
         );
 
@@ -58,13 +87,72 @@ public class CoursePlannerAssistant {
 
         // Close database connection
         dbManager.connClose();
+
+        // Return the plain text response from Gemini
         return response;
     }
 
-    private Map<String, String> fetchCourseSchedules() {
+    private String formatResponseAsTable(String response) {
+        StringBuilder table = new StringBuilder();
+        table.append("<table border='1'>\n");
+        table.append("<tr><th>Course Code</th><th>Course Name</th><th>Credits</th><th>Instructor</th><th>Times</th></tr>\n");
+
+        String justification = "No justification provided.";
+        String totalCredits = "0";
+
+        // Parse the response (assuming it follows the expected format)
+        String[] lines = response.split("\n");
+        boolean inScheduleSection = false;
+        for (String line : lines) {
+            line = line.trim();
+            if (line.startsWith("Recommended Semester Plan:")) {
+                inScheduleSection = true;
+                continue;
+            }
+            if (line.startsWith("Total Credits:")) {
+                totalCredits = line.replace("Total Credits:", "").trim();
+                continue;
+            }
+            if (line.startsWith("Justification:")) {
+                justification = line.replace("Justification:", "").trim();
+                continue;
+            }
+            if (inScheduleSection && line.startsWith("-") && !line.equals("- None")) {
+                // Parse course line, e.g., "- CS201: Data Structures (3.0 credits, Dr. Smith, MON WED FRI 09:00AM-10:00AM)"
+                try {
+                    String courseInfo = line.substring(2).trim(); // Remove "- "
+                    String[] parts = courseInfo.split(":\\s+|\\s*\\(");
+                    String courseCode = parts[0].trim();
+                    String courseName = parts[1].split("\\s*\\(")[0].trim();
+                    String details = parts[1].substring(parts[1].indexOf("(") + 1, parts[1].length() - 1);
+                    String[] detailParts = details.split(",\\s*");
+                    String credits = detailParts[0].replace("credits", "").trim();
+                    String instructor = detailParts[1].trim();
+                    String times = detailParts[2].trim();
+
+                    table.append("<tr>");
+                    table.append("<td>").append(courseCode).append("</td>");
+                    table.append("<td>").append(courseName).append("</td>");
+                    table.append("<td>").append(credits).append("</td>");
+                    table.append("<td>").append(instructor).append("</td>");
+                    table.append("<td>").append(times).append("</td>");
+                    table.append("</tr>\n");
+                } catch (Exception e) {
+                    log.error("Failed to parse course line: {}", line, e);
+                }
+            }
+        }
+        table.append("</table>\n");
+        table.append("<p><strong>Total Credits:</strong> ").append(totalCredits).append("</p>\n");
+        table.append("<p><strong>Justification:</strong> ").append(justification).append("</p>\n");
+
+        return table.toString();
+    }
+
+    private Map<String, String> fetchCourseSchedules(String semester) {
         Map<String, String> courseScheduleDB = new HashMap<>();
         // Fetch all schedules for the semester
-        List<Tables.Schedule> schedules = Tables.Schedule.selectBySemester("202425/fall");
+        List<Tables.Schedule> schedules = Tables.Schedule.selectBySemester(semester);
         try {
             // Format all schedules
             for (Tables.Schedule s : schedules) {
@@ -74,7 +162,7 @@ public class CoursePlannerAssistant {
                 courseScheduleDB.put(s.courseCode, scheduleInfo);
             }
         } catch (Exception e) {
-            log.error("Failed to format course schedules", e);
+            log.error("Failed to format course schedules for semester {}", semester, e);
             throw new DatabaseManager.DatabaseException("Failed to format course schedules", e);
         }
         return courseScheduleDB;
@@ -92,7 +180,7 @@ public class CoursePlannerAssistant {
             Map<String, String> courseScheduleDB
     ) {
         StringBuilder prompt = new StringBuilder();
-        prompt.append("You are an expert university course planner tasked with creating an optimized, conflict-free semester schedule for a student. Your goal is to select courses that align with the student's degree program, infer core and General Education courses, exactly match the requested credit load, and respect preferences. Follow these instructions precisely:\n\n");
+        prompt.append("You are an expert university course planner tasked with creating an optimized, conflict-free semester schedule for a student. Your goal is to select courses that align with the student's degree program, infer core and General Education courses, match the requested credit load, and respect preferences. Follow these instructions precisely:\n\n");
 
         prompt.append("### Student Profile\n");
         prompt.append("- **Name**: ").append(studentName).append("\n");
@@ -147,7 +235,7 @@ public class CoursePlannerAssistant {
         prompt.append("   - If an interest is specified (e.g., AI), prioritize courses whose names suggest relevance (e.g., 'Intro to Artificial Intelligence').\n");
         prompt.append("   - Favor courses with preferred instructors, days, and time slots, but include others if necessary to meet credit and scheduling requirements.\n");
         prompt.append("2. **Exact Credit Requirements**:\n");
-        prompt.append("   - Select courses that exactly match the requested credit load based on the workload preference:\n");
+        prompt.append("   - Select courses that match the requested credit load based on the workload preference:\n");
         prompt.append("     - light: Exactly 9 credits\n");
         prompt.append("     - medium: Exactly 12 credits\n");
         prompt.append("     - full: Exactly 15 credits\n");
@@ -189,5 +277,43 @@ public class CoursePlannerAssistant {
 
         prompt.append("\nNow, generate the semester plan for the student based on the provided data.");
         return prompt;
+    }
+
+    public String generateOptimizedPlan(
+            String studentName,
+            String degreeProgram,
+            String yearLevel,
+            List<String> completedCourses,
+            Map<String, String> preferences,
+            Set<String> preferredInstructors,
+            Set<String> preferredDays,
+            String preferredTimeSlot
+    ) {
+        // Initialize inputs with defaults
+        if (studentName == null || studentName.isEmpty()) studentName = "Student";
+        if (degreeProgram == null || degreeProgram.isEmpty()) degreeProgram = "CS";
+        if (yearLevel == null || yearLevel.isEmpty()) yearLevel = "Sophomore";
+        if (completedCourses == null) completedCourses = new ArrayList<>();
+        if (preferences == null) preferences = new HashMap<>();
+        if (preferredInstructors == null) preferredInstructors = Set.of();
+        if (preferredDays == null) preferredDays = Set.of();
+        if (preferredTimeSlot == null) preferredTimeSlot = "";
+
+        // Fetch available course schedules from database
+        Map<String, String> courseScheduleDB = fetchCourseSchedules("202425/fall");
+
+        // Build prompt
+        StringBuilder prompt = buildPrompt(
+                studentName, degreeProgram, yearLevel, completedCourses,
+                preferences, preferredInstructors, preferredDays, preferredTimeSlot,
+                courseScheduleDB
+        );
+
+        // Send prompt and get response
+        String response = geminiClient.sendPrompt(prompt.toString());
+
+        // Close database connection
+        dbManager.connClose();
+        return response;
     }
 }
